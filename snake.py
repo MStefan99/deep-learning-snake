@@ -24,7 +24,7 @@ class Snake:
         self.win = pygame.display.set_mode((win_width, win_height))
         pygame.display.set_caption("The Snake!")
 
-        self.snake = collections.deque([3, 2, 1, 0])
+        self.snake = collections.deque([(3, 0), (2, 0), (1, 0), (0, 0)])
 
         self.snake_length = 4
         self.direction = 1
@@ -32,7 +32,7 @@ class Snake:
         self.food = None
 
     def reset(self):
-        self.snake = collections.deque([3, 2, 1, 0])
+        self.snake = collections.deque([(3, 0), (2, 0), (1, 0), (0, 0)])
 
         self.snake_length = 4
         self.direction = 1
@@ -49,14 +49,15 @@ class Snake:
             if not self.food:
                 self.food = self.random_tile()
 
-            x, y = self.num_to_window_coords(self.food)
+            x, y = self.tile_to_window_coords(self.food)
             pygame.draw.rect(self.win, (255, 0, 0),
                              (x, y, win_width / self.window.tiles_horizontal, win_height / self.window.tiles_vertical))
 
             for tile in self.snake:
-                x, y = self.num_to_window_coords(tile)
+                x, y = self.tile_to_window_coords(tile)
                 pygame.draw.rect(self.win, (0, 255, 0), (
-                    x, y, win_width / self.window.tiles_horizontal, win_height / self.window.tiles_vertical))
+                    x, y, win_width / self.window.tiles_horizontal,
+                    win_height / self.window.tiles_vertical))
             pygame.display.update()
 
             for event in pygame.event.get():
@@ -84,36 +85,34 @@ class Snake:
             if self.head() in self.body() or self.hit_wall():
                 self.reset()
 
+            self.observe()
+
         pygame.quit()
 
-    def num_to_window_coords(self, num):
-        return num % self.window.tiles_vertical * self.window.tile_width, num // \
-               self.window.tiles_horizontal * self.window.tile_height
-
-    def num_to_tile_coords(self, num):
-        return num % self.window.tiles_vertical * self.window.tile_width // self.window.tile_width, num // \
-               self.window.tiles_horizontal * self.window.tile_height // self.window.tile_height
+    def tile_to_window_coords(self, tile):
+        return tile[0] * self.window.tile_width, tile[1] * self.window.tile_height
 
     def get_next(self):
+        x, y = self.head()
         if self.direction == 0:
-            return self.head() - self.window.tiles_vertical
-        elif self.direction == 2:
-            return self.head() + self.window.tiles_vertical
+            return x, y - 1
         elif self.direction == 1:
-            return self.head() + 1
+            return x + 1, y
+        elif self.direction == 2:
+            return x, y + 1
         else:
-            return self.head() - 1
+            return x - 1, y
 
     def random_tile(self):
         field = collections.deque()
-        for i in range(0, self.window.tiles_horizontal * self.window.tiles_vertical):
-            if i not in self.snake:
-                field.append(i)
-        rand_tile = random.randrange(0, len(field))
-        return field.index(rand_tile)
+        for i in range(0, self.window.tiles_horizontal):
+            for j in range(0, self.window.tiles_vertical):
+                if (i, j) not in self.snake:
+                    field.append((i, j))
+        return random.choice(field)
 
     def hit_wall(self):
-        x0, y0 = self.num_to_tile_coords(self.head())
+        x0, y0 = self.head()
 
         hit_up = x0 < 0 or y0 < 0
         hit_down = x0 > self.window.tiles_vertical or y0 > self.window.tiles_horizontal
@@ -124,10 +123,10 @@ class Snake:
         return hit_up or hit_down or hit_right or hit_left
 
     def is_left_tile(self, tile):
-        return tile % self.window.tiles_horizontal == 0
+        return tile[0] == 0
 
     def is_right_tile(self, tile):
-        return tile % self.window.tiles_horizontal == self.window.tiles_horizontal - 1
+        return tile[1] == self.window.tiles_horizontal - 1
 
     def head(self):
         return self.snake[0]
@@ -136,6 +135,37 @@ class Snake:
         snake_body = self.snake.copy()
         snake_body.popleft()
         return snake_body
+
+    def tile_in_window(self, tile):
+        is_inside = 0 <= tile[0] <= self.window.tiles_horizontal and 0 <= tile[1] <= self.window.tiles_vertical
+        return is_inside
+
+    def next_tile_in_direction(self, direction, tile):
+        x, y = tile[0], tile[1]
+        if direction == 0:
+            y -= 1
+        elif direction == 1:
+            x += 1
+        elif direction == 2:
+            y += 1
+        else:
+            x -= 1
+        if self.tile_in_window((x, y)):
+            return x, y
+        else:
+            return None
+
+    def observe(self):
+        observations = [0, 0, 0, 0]
+        for direction in range(0, 4):
+            tile = self.head()
+            while True:
+                tile = self.next_tile_in_direction(direction, tile)
+                if tile and tile not in self.snake:
+                    observations[direction] += 1
+                else:
+                    break
+        print(observations)
 
 
 w = Window(50, 50)
