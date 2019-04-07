@@ -114,14 +114,20 @@ class Snake:
 
     def hit_wall(self):
         x0, y0 = self.num_to_tile_coords(self.head())
+
         hit_up = x0 < 0 or y0 < 0
         hit_down = x0 > self.window.tiles_vertical or y0 > self.window.tiles_horizontal
-        hit_right = self.snake[0] % self.window.tiles_horizontal == 0 \
-            and self.snake[1] % self.window.tiles_horizontal == self.window.tiles_horizontal - 1
-        hit_left = self.snake[0] % self.window.tiles_horizontal == self.window.tiles_horizontal - 1 \
-            and self.snake[1] % self.window.tiles_horizontal == 0
+
+        hit_right = self.is_left_tile(self.snake[0]) and self.is_right_tile(self.snake[1])
+        hit_left = self.is_right_tile(self.snake[0]) and self.is_left_tile(self.snake[1])
 
         return hit_up or hit_down or hit_right or hit_left
+
+    def is_left_tile(self, tile):
+        return tile % self.window.tiles_horizontal == 0
+
+    def is_right_tile(self, tile):
+        return tile % self.window.tiles_horizontal == self.window.tiles_horizontal - 1
 
     def head(self):
         return self.snake[0]
