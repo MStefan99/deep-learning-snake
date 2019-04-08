@@ -29,6 +29,7 @@ class Snake:
         self.snake_length = 4
         self.direction = 1
         self.speed = 2
+        self.score = 0
         self.food = None
 
     def reset(self):
@@ -37,11 +38,14 @@ class Snake:
         self.snake_length = 4
         self.direction = 1
         self.speed = 2
+        self.score = 0
         self.food = None
 
     def step(self):
         pygame.time.delay(200 // self.speed)
+        lost = False
         self.win.fill((0, 0, 0))
+        reward = 1
 
         if not self.food:
             self.food = self.random_tile()
@@ -68,20 +72,25 @@ class Snake:
         if keys[pygame.K_DOWN] and self.direction != 0:
             self.direction = 2
 
+        if self.lose():
+            self.reset()
+
         self.snake.appendleft(self.get_next())
         if len(self.snake) > self.snake_length:
             self.snake.pop()
 
         if self.snake[0] == self.food:
+            reward = 100
             self.food = None
             self.snake_length += 1
-
-        if self.head() in self.body() or self.hit_wall():
-            self.reset()
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
+
+        self.score += reward
+
+        return self.observe(), self.lose(), reward, self.score
 
     def tile_to_window_coords(self, tile):
         return tile[0] * self.window.tile_width, tile[1] * self.window.tile_height
@@ -115,6 +124,9 @@ class Snake:
         hit_left = self.is_right_tile(self.snake[0]) and self.is_left_tile(self.snake[1])
 
         return hit_up or hit_down or hit_right or hit_left
+
+    def lose(self):
+        return self.head() in self.body() or self.hit_wall()
 
     @staticmethod
     def is_left_tile(tile):

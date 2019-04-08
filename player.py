@@ -5,7 +5,5 @@ s = Snake(w)
 
 run = True
 while run:
-    s.step()
-
-    print(s.observe())
+    print(s.step())
 
