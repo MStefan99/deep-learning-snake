@@ -2,15 +2,15 @@ from snake import Window, Snake
 
 import random
 import numpy as np
-import tensorflow as tf
 from keras import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-
-required_score = 100
-initial_games = 500
+required_score = 1000
+initial_games = 2000
 goal_steps = 500
+w = Window(500, 500, 50, 50)
+s = Snake(w)
 
 
 def prepare_model_data():
@@ -20,6 +20,7 @@ def prepare_model_data():
         score = 0
         game_memory = []
         previous_observation = []
+        print(f'Game {game} of {initial_games}')
 
         for step in range(goal_steps):
             action = random.randrange(0, 3)
@@ -40,8 +41,9 @@ def prepare_model_data():
                 action = data[1]
                 output[action] = 1
                 training_data.append([data[0], output])
+    print(accepted_scores)
 
-    return training_data, accepted_scores
+    return training_data
 
 
 def create_model(in_size, out_size):
@@ -56,16 +58,44 @@ def create_model(in_size, out_size):
 
 def play_random_games():
     for _ in range(1000):
-        observation, reward, done, info = s.step(random.randrange(0, 3))
+        s.step(random.randrange(0, 3))
+
+
+def train_model(training_data):
+    x = np.array(([data[0] for data in training_data]))
+    y = np.array(([data[1] for data in training_data]))
+
+    model = create_model(len(x[0]), len(y[0]))
+
+    model.fit(x, y, epochs=50)
+    return model
+
+
+def play_game(trained_model):
+    observation = []
+    score = 0
+    while True:
+        if not observation:
+            action = random.randrange(0, 3)
+        else:
+            action = np.argmax(trained_model.predict(np.array(observation).reshape(-1, len(observation))))
+
+        observation, reward, done = s.step(action)
+
+        score += reward
+        if done:
+            print(score)
+            score = 0
+            s.reset()
+
+
+def main():
+    s.speed = 0
+    data = prepare_model_data()
+    trained_model = train_model(data)
+    s.speed = 4
+    play_game(trained_model)
 
 
 if __name__ == '__main__':
-    w = Window(500, 500, 10, 10)
-    s = Snake(w)
-
-    s.speed = 250
-    data, scores = prepare_model_data()
-    m = create_model(len(data), 4)
-
-    print(scores)
-
+    main()

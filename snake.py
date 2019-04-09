@@ -39,7 +39,9 @@ class Snake:
         self.food = None
 
     def step(self, action):
-        pygame.time.delay(200 // self.speed)
+        if self.speed != 0:
+            pygame.time.delay(200 // self.speed)
+
         self.win.fill((0, 0, 0))
         reward = 1
 
@@ -75,7 +77,7 @@ class Snake:
             self.snake.pop()
 
         if self.snake[0] == self.food:
-            reward = 100
+            reward = 1000
             self.food = None
             self.snake_length += 1
 
