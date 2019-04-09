@@ -3,6 +3,10 @@ from snake import Window, Snake
 import random
 import numpy as np
 import tensorflow as tf
+from keras import Sequential
+from keras.layers import Dense
+from keras.optimizers import Adam
+
 
 required_score = 100
 initial_games = 500
@@ -40,6 +44,16 @@ def prepare_model_data():
     return training_data, accepted_scores
 
 
+def create_model(in_size, out_size):
+    model = Sequential()
+    model.add(Dense(64, input_dim=in_size, activation='relu'))
+    model.add(Dense(64, activation='relu'))
+    model.add(Dense(out_size, activation='softmax'))
+    model.compile(loss='mse', optimizer=Adam())
+
+    return model
+
+
 def play_random_games():
     for _ in range(1000):
         observation, reward, done, info = s.step(random.randrange(0, 3))
@@ -50,6 +64,8 @@ if __name__ == '__main__':
     s = Snake(w)
 
     s.speed = 250
-    _, scores = prepare_model_data()
+    data, scores = prepare_model_data()
+    m = create_model(len(data), 4)
+
     print(scores)
 
