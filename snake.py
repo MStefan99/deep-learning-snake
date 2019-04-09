@@ -29,7 +29,6 @@ class Snake:
         self.snake_length = 4
         self.direction = 1
         self.speed = 2
-        self.score = 0
         self.food = None
 
     def reset(self):
@@ -37,13 +36,10 @@ class Snake:
 
         self.snake_length = 4
         self.direction = 1
-        self.speed = 2
-        self.score = 0
         self.food = None
 
-    def step(self):
+    def step(self, action):
         pygame.time.delay(200 // self.speed)
-        lost = False
         self.win.fill((0, 0, 0))
         reward = 1
 
@@ -62,14 +58,13 @@ class Snake:
                 self.window.win_height / self.window.tiles_vertical))
         pygame.display.update()
 
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT] and self.direction != 1:
+        if action == 3 and self.direction != 1:
             self.direction = 3
-        if keys[pygame.K_RIGHT] and self.direction != 3:
+        if action == 1 and self.direction != 3:
             self.direction = 1
-        if keys[pygame.K_UP] and self.direction != 2:
+        if action == 0 and self.direction != 2:
             self.direction = 0
-        if keys[pygame.K_DOWN] and self.direction != 0:
+        if action == 2 and self.direction != 0:
             self.direction = 2
 
         if self.lose():
@@ -88,9 +83,7 @@ class Snake:
             if event.type == pygame.QUIT:
                 pygame.quit()
 
-        self.score += reward
-
-        return self.observe(), self.lose(), reward, self.score
+        return self.observe(), reward, self.lose()
 
     def tile_to_window_coords(self, tile):
         return tile[0] * self.window.tile_width, tile[1] * self.window.tile_height
