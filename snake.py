@@ -22,14 +22,15 @@ class Snake:
         pygame.init()
 
         self.win = pygame.display.set_mode((self.window.win_width, self.window.win_height))
-        pygame.display.set_caption("The Snake!")
-
         self.snake = collections.deque([(3, 0), (2, 0), (1, 0), (0, 0)])
-
         self.snake_length = 4
         self.direction = 1
         self.speed = 2
         self.food = None
+
+    @staticmethod
+    def title(title):
+        pygame.display.set_caption(title)
 
     def reset(self):
         self.snake = collections.deque([(3, 0), (2, 0), (1, 0), (0, 0)])
@@ -58,6 +59,7 @@ class Snake:
             pygame.draw.rect(self.win, (0, 255, 0), (
                 x, y, self.window.win_width / self.window.tiles_horizontal,
                 self.window.win_height / self.window.tiles_vertical))
+
         pygame.display.update()
 
         if action == 3 and self.direction != 1:
@@ -71,13 +73,14 @@ class Snake:
 
         if self.lose():
             self.reset()
+            reward = -100
 
         self.snake.appendleft(self.get_next())
         if len(self.snake) > self.snake_length:
             self.snake.pop()
 
         if self.snake[0] == self.food:
-            reward = 1000
+            reward = 100
             self.food = None
             self.snake_length += 1
 
@@ -85,7 +88,7 @@ class Snake:
             if event.type == pygame.QUIT:
                 pygame.quit()
 
-        return self.observe(), reward, self.lose()
+        return self.observe(), reward, self.lose(), self.distance_between_tiles(self.head(), self.food)
 
     def tile_to_window_coords(self, tile):
         return tile[0] * self.window.tile_width, tile[1] * self.window.tile_height
@@ -170,9 +173,9 @@ class Snake:
         else:
             return None
 
-    @staticmethod
-    def distance_between_tiles(tile1, tile2):
-        return ((tile1[0] - tile2[0]) ** 2 + (tile1[1] - tile2[1]) ** 2) ** (1 / 2)
+    def distance_between_tiles(self, tile1, tile2):
+        return ((tile1[0] - tile2[0]) ** 2 + (tile1[1] - tile2[1]) ** 2) ** (
+                    1 / 2) if tile1 and tile2 else self.window.diagonal_tiles
 
     def get_dimension(self, direction):
         if direction > 3:
