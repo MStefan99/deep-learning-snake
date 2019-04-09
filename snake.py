@@ -33,7 +33,7 @@ class Snake:
         pygame.display.set_caption(title)
 
     def reset(self):
-        self.snake = collections.deque([(3, 0), (2, 0), (1, 0), (0, 0)])
+        self.snake = collections.deque([(8, 5), (7, 5), (6, 5), (5, 5)])
 
         self.snake_length = 4
         self.direction = 1
@@ -44,7 +44,7 @@ class Snake:
             pygame.time.delay(200 // self.speed)
 
         self.win.fill((0, 0, 0))
-        reward = 1
+        reward = 0
 
         if not self.food:
             self.food = self.random_tile()
@@ -73,14 +73,13 @@ class Snake:
 
         if self.lose():
             self.reset()
-            reward = -100
 
         self.snake.appendleft(self.get_next())
         if len(self.snake) > self.snake_length:
             self.snake.pop()
 
         if self.snake[0] == self.food:
-            reward = 100
+            reward = 1
             self.food = None
             self.snake_length += 1
 
@@ -209,11 +208,10 @@ class Snake:
             tile = self.head()
             while True:
                 next_tile = self.next_tile_in_direction(direction, tile)
-                if not next_tile:
+                if not next_tile or next_tile in self.snake:
                     break
                 elif next_tile == self.food:
                     observations[direction + 16] = 1 - self.distance_between_tiles(self.head(), tile) / dim
-
                 tile = self.next_tile_in_direction(direction, tile)
 
         return observations

@@ -6,30 +6,29 @@ from keras import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-required_score = 100
+required_score = 1000
 initial_games = 1000
 goal_steps = 500
 w = Window(500, 500, 50, 50)
 s = Snake(w)
 
 
-def prepare_model_data():
+def prepare_model_data(number):
     training_data = []
     accepted_scores = []
-    for game in range(initial_games):
+    for game in range(number):
         score = 0
         game_memory = []
-        previous_observation = []
+        observation = []
         print(f'Game {game} of {initial_games}')
 
         for step in range(goal_steps):
-            action = random.randrange(0, 3)
+            action = get_action(observation)
             observation, reward, done, _ = s.step(action)
 
-            if len(previous_observation) > 0:
-                game_memory.append([previous_observation, action])
+            if len(observation) > 0:
+                game_memory.append([observation, action])
 
-            previous_observation = observation
             score += reward
             if done:
                 break
@@ -46,9 +45,23 @@ def prepare_model_data():
     return training_data
 
 
+def get_action(observations):
+    if not observations:
+        return random.randrange(0, 4)
+    elif observations[16] != 0:
+        return 0
+    elif observations[17] != 0:
+        return 1
+    elif observations[18] != 0:
+        return 2
+    elif observations[19] != 0:
+        return 3
+    else:
+        return random.randrange(0, 4)
+
+
 def train_generation(trained_model, generation_games):
     training_data = []
-    accepted_scores = []
     for game in range(generation_games):
         score = 0
         observation = []
@@ -72,14 +85,12 @@ def train_generation(trained_model, generation_games):
             if done:
                 break
 
-        if score > required_score:
-            accepted_scores.append(score)
-            for data in game_memory:
-                output = [0] * 4
-                action = data[1]
-                output[action] = 1
-                training_data.append([data[0], output])
-    print(accepted_scores)
+        for data in game_memory:
+            output = [0] * 4
+            action = data[1]
+            output[action] = 1
+            training_data.append([data[0], output])
+    print(training_data)
 
     train_model(training_data)
     return trained_model
@@ -87,8 +98,8 @@ def train_generation(trained_model, generation_games):
 
 def create_model(in_size, out_size):
     model = Sequential()
-    model.add(Dense(64, input_dim=in_size, activation='relu'))
-    model.add(Dense(64, activation='relu'))
+    model.add(Dense(128, input_dim=in_size, activation='relu'))
+    model.add(Dense(32, activation='relu'))
     model.add(Dense(out_size, activation='softmax'))
     model.compile(loss='mse', optimizer=Adam())
 
@@ -97,7 +108,7 @@ def create_model(in_size, out_size):
 
 def play_random_games():
     for _ in range(1000):
-        s.step(random.randrange(0, 3))
+        s.step(random.randrange(0, 4))
 
 
 def train_model(training_data):
@@ -106,7 +117,7 @@ def train_model(training_data):
 
     model = create_model(len(x[0]), len(y[0]))
 
-    model.fit(x, y, epochs=20)
+    model.fit(x, y, epochs=50)
     return model
 
 
@@ -139,9 +150,12 @@ def play_game(trained_model):
 def main():
     s.speed = 0
     s.title('Training, please wait...')
-    data = prepare_model_data()
+    while True:
+        data = prepare_model_data(initial_games)
+        if data:
+            break
     trained_model = train_model(data)
-    s.speed = 4
+    s.speed = 8
     s.title('The snake!')
     play_game(trained_model)
 
