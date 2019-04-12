@@ -15,50 +15,70 @@ class Window:
         self.diagonal = ((win_height - 0) ** 2 + (win_width - 1) ** 2) ** (1 / 2)
         self.diagonal_tiles = ((tiles_horizontal - 0) ** 2 + (tiles_vertical - 1) ** 2) ** (1 / 2)
 
+        self.speed = 100
+        self.food = None
+        self.win = pygame.display.set_mode((self.win_width, self.win_height))
+
+    def generate_food(self):
+        self.food = self.random_tile()
+
+    def random_tile(self):
+        i = random.randrange(self.tiles_horizontal)
+        j = random.randrange(self.tiles_vertical)
+        return i, j
+
+    @staticmethod
+    def update():
+        pygame.display.update()
+
+    def clear(self):
+        self.win.fill((0, 0, 0))
+
+    def delay(self):
+        if self.speed != 0:
+            pygame.time.delay(200 // self.speed)
+
 
 class Snake:
     def __init__(self, window):
         self.window = window
         pygame.init()
 
-        self.win = pygame.display.set_mode((self.window.win_width, self.window.win_height))
         pygame.display.set_caption("The Snake!")
 
-        self.snake = collections.deque([(3, 0), (2, 0), (1, 0), (0, 0)])
+        x = self.window.tiles_horizontal // 2
+        y = self.window.tiles_vertical // 2
+        self.snake = collections.deque([(x, y), (x - 1, y), (x - 2, y), (x - 3, y)])
 
         self.snake_length = 4
         self.direction = 1
-        self.speed = 2
-        self.food = None
+        self.color = random.randrange(50, 255), random.randrange(50, 255), random.randrange(50, 255)
 
     def reset(self):
-        self.snake = collections.deque([(3, 0), (2, 0), (1, 0), (0, 0)])
+        x = self.window.tiles_horizontal // 2
+        y = self.window.tiles_vertical // 2
+        self.snake = collections.deque([(x, y), (x - 1, y), (x - 2, y), (x - 3, y)])
 
         self.snake_length = 4
         self.direction = 1
-        self.food = None
 
     def step(self, action):
-        if self.speed != 0:
-            pygame.time.delay(200 // self.speed)
-
-        self.win.fill((0, 0, 0))
+        # self.window.delay()
         reward = 1
 
-        if not self.food:
-            self.food = self.random_tile()
+        if not self.window.food:
+            self.window.generate_food()
 
-        x, y = self.tile_to_window_coords(self.food)
-        pygame.draw.rect(self.win, (255, 0, 0),
+        x, y = self.tile_to_window_coords(self.window.food)
+        pygame.draw.rect(self.window.win, (255, 0, 0),
                          (x, y, self.window.win_width / self.window.tiles_horizontal,
                           self.window.win_height / self.window.tiles_vertical))
 
         for tile in self.snake:
             x, y = self.tile_to_window_coords(tile)
-            pygame.draw.rect(self.win, (0, 255, 0), (
+            pygame.draw.rect(self.window.win, self.color, (
                 x, y, self.window.win_width / self.window.tiles_horizontal,
                 self.window.win_height / self.window.tiles_vertical))
-        pygame.display.update()
 
         if action == 3 and self.direction != 1:
             self.direction = 3
@@ -69,16 +89,16 @@ class Snake:
         if action == 2 and self.direction != 0:
             self.direction = 2
 
-        if self.lose():
-            self.reset()
+        # if self.lose():
+        #     self.reset()
 
         self.snake.appendleft(self.get_next())
         if len(self.snake) > self.snake_length:
             self.snake.pop()
 
-        if self.snake[0] == self.food:
+        if self.snake[0] == self.window.food:
             reward = 1000
-            self.food = None
+            self.window.food = None
             self.snake_length += 1
 
         for event in pygame.event.get():
@@ -100,14 +120,6 @@ class Snake:
             return x, y + 1
         elif self.direction == 3:
             return x - 1, y
-
-    def random_tile(self):
-        field = collections.deque()
-        for i in range(0, self.window.tiles_horizontal):
-            for j in range(0, self.window.tiles_vertical):
-                if (i, j) not in self.snake:
-                    field.append((i, j))
-        return random.choice(field)
 
     def hit_wall(self):
         x0, y0 = self.head()
@@ -206,9 +218,9 @@ class Snake:
             tile = self.head()
             while True:
                 next_tile = self.next_tile_in_direction(direction, tile)
-                if not next_tile:
+                if not next_tile or next_tile in self.snake:
                     break
-                elif next_tile == self.food:
+                elif next_tile == self.window.food:
                     observations[direction + 16] = 1 - self.distance_between_tiles(self.head(), tile) / dim
 
                 tile = self.next_tile_in_direction(direction, tile)
