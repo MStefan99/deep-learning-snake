@@ -73,7 +73,8 @@ def train_model(training_data):
 
 
 def play_game(population):
-    generation = 0
+    generation = 1
+    size = len(population)
     while True:
         print(f'Generation {generation} running...')
         while True:
@@ -93,20 +94,20 @@ def play_game(population):
             w.clear()
 
             if all_dead(population):
-                size = len(population)
-                leave = 2
+                leave = 5
                 population = sorted(population, key=lambda kv: kv['score'], reverse=True)[:len(population) // leave]
                 print(f'Generation {generation} has finished playing. Generation highscore: {population[0]["score"]}.')
 
                 print(f'Breeding generation {generation}...')
                 while len(population) < size:
-                    log_process('Breeding...', (len(population) / size - 1 / leave) * leave, 40)
+                    log_process('Breeding...', (len(population) / size - 1 / leave) / (1 - 1 / leave), 200)
                     population.append(breed(random.choice(population), random.choice(population)))
+                log_process('Breeding...', 1, 100, end='\r')
 
-                print(f'\nMutating generation {generation}...')
+                print(f'Mutating generation {generation}...')
                 for _ in range(3):
                     model = random.randrange(len(population))
-                    population[model] = mutate(population[model], 10)
+                    population[model] = mutate(population[model], 5)
 
                 generation += 1
                 print(f'Success! Preparing to run generation {generation}')
@@ -116,9 +117,10 @@ def play_game(population):
 
 
 def log_process(text, process, size, start='\r', end=''):
-    print(text + f' {start}[' +
-          '*' * round(process * size) + ' ' * round((1 - process) * size) +
-          '] ' + f'{round(100 * process)}%', end=end)
+    completed = round(process * size)
+    print(text + f' {start}▌■' +
+          '▬' * completed + '►' + ' ' * (size - completed) +
+          '▐' + f' {round(100 * process, 2)}%', end=end)
 
 
 def all_dead(population):
@@ -160,9 +162,10 @@ def breed(mother, father):
     for layer in enumerate(weights):
         if layer[1].ndim > 1:
             for row in range(len(layer[1])):
-                m_value = m_weights[layer[0]][row]
-                f_value = f_weights[layer[0]][row]
-                weights[layer[0]][row] = random_of_two(m_value, f_value)
+                for column in range(len(layer[1][row])):
+                    m_value = m_weights[layer[0]][row][column]
+                    f_value = f_weights[layer[0]][row][column]
+                    weights[layer[0]][row][column] = random_of_two(m_value, f_value)
             weights[layer[0]] = layer[1]
     child['model'].set_weights(weights)
 
@@ -190,7 +193,7 @@ def mutate(network, speed):
 
 
 def main():
-    population = create_population(200)
+    population = create_population(10)
     play_game(population)
 
 
