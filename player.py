@@ -1,59 +1,53 @@
-from snake import Window, Snake
-
 import random
+
 import numpy as np
 from keras import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-required_score = -1000
-initial_games = 2000
+from snake import Window, Snake
+
+initial_games = 500
 goal_steps = 500
-w = Window(500, 500, 50, 50)
+w = Window(500, 500, 25, 25)
 s = Snake(w)
 
 
 def prepare_model_data():
     training_data = []
-    accepted_scores = []
     for game in range(initial_games):
         score = 0
         game_memory = []
-        previous_observation = []
-        print(f'Game {game} of {initial_games}')
+        log_process('Running games...', game / initial_games, 100)
 
         for step in range(goal_steps):
             action = random.randrange(0, 4)
             observation, reward, done = s.step(action)
-            # w.update()
-            # w.clear()
 
-            if len(previous_observation) > 0:
-                game_memory.append([previous_observation, action])
+            if reward > 0:
+                game_memory.append([observation, action])
 
-            previous_observation = observation
             score += reward
             if done:
                 s.reset()
                 break
 
-        if score > required_score:
-            accepted_scores.append(score)
-            for data in game_memory:
-                output = [0] * 4
-                action = data[1]
-                output[action] = 1
-                training_data.append([data[0], output])
-    print(accepted_scores)
+        for data in game_memory:
+            output = [0] * 4
+            action = data[1]
+            output[action] = 1
+            training_data.append([data[0], output])
 
+    print()
+    print(f'Recorded {len(training_data)} moves')
     return training_data
 
 
 def create_model(in_size, out_size):
     model = Sequential()
-    model.add(Dense(64, input_dim=in_size, activation='relu'))
-    model.add(Dense(64, activation='relu'))
-    model.add(Dense(out_size, activation='softmax'))
+    model.add(Dense(256, input_dim=in_size, activation='relu', kernel_initializer='random_normal'))
+    model.add(Dense(256, activation='relu', kernel_initializer='random_normal'))
+    model.add(Dense(out_size, activation='softmax', kernel_initializer='random_normal'))
     model.compile(loss='mse', optimizer=Adam())
 
     return model
@@ -70,29 +64,39 @@ def train_model(training_data):
 
     model = create_model(len(x[0]), len(y[0]))
 
-    model.fit(x, y, epochs=20)
+    model.fit(x, y, epochs=10)
     return model
 
 
 def play_game(trained_model):
-    observation = []
     score = 0
-    while True:
-        if not observation:
-            action = random.randrange(0, 3)
-        else:
-            action = np.argmax(trained_model.predict(np.array(observation).reshape(-1, len(observation))))
+    action = random.randrange(0, 4)
+    observation, reward, done = s.step(action)
 
+    while True:
+        action = np.argmax(trained_model.predict(np.array(observation).reshape(-1, len(observation))))
         observation, reward, done = s.step(action)
+
+        w.update()
+        w.delay()
+        w.clear()
 
         score += reward
         if done:
-            print(score)
+            print(f'Game finished. Score: {round(score, 1)}')
             score = 0
             s.reset()
 
 
+def log_process(text, process, size, start='\r', end=''):
+    completed = round(process * size)
+    print(f'{start}{text}  ▌■' +
+          '▬' * completed + '►' + ' ' * (size - completed) +
+          '▐' + f' {round(100 * process, 2)}%', end=end)
+
+
 def main():
+    # play_game(create_model(14, 4))
     w.mode = 'Background'
     data = prepare_model_data()
     trained_model = train_model(data)

@@ -86,13 +86,13 @@ class Window:
         data = [0] * 4
 
         if self.food[0] < tile[0]:
-            data[3] = self.food[0] / (tile[0] + 2)
+            data[3] = (tile[0] - self.food[0]) / self.tiles_horizontal
         else:
-            data[1] = (self.tiles_horizontal - self.food[0]) / (tile[0] + 2)
+            data[1] = (self.food[0] - tile[0]) / self.tiles_horizontal
         if self.food[1] < tile[1]:
-            data[0] = self.food[1] / (tile[1] + 2)
+            data[0] = (tile[1] - self.food[1]) / self.tiles_vertical
         else:
-            data[2] = (self.tiles_vertical - self.food[1]) / (tile[1] + 2)
+            data[2] = (self.food[1] - tile[1]) / self.tiles_vertical
 
         return data
 
@@ -213,7 +213,7 @@ class Snake:
         observations = self._window.dist_to_wall(tile)
         observations.extend(self._window.dist_to_body(tile, self._body()))
         observations.extend(self._window.dist_to_food(tile))
-        observations.append(self._prev_action)
+        observations.append(self._prev_action / 4)
         observations.append(self._get_reward())
 
         return observations
