@@ -59,47 +59,42 @@ class Window:
     def tile_to_window_coords(self, tile):
         return tile[0] * self.tile_width, tile[1] * self.tile_height
 
-    def dist_to_wall(self, tile, direction):
-        if tile[0] == 0 or tile[1] == 0 or tile[0] == self.tiles_horizontal or tile[1] == self.tiles_vertical:
-            return 0
+    def dist_to_wall(self, tile):
+        data = [tile[1] / self.tiles_vertical,
+                1 - tile[0] / self.tiles_horizontal,
+                1 - tile[1] / self.tiles_vertical,
+                tile[0] / self.tiles_horizontal]
 
-        if direction == 0:
-            return tile[1] / self.tiles_vertical
-        elif direction == 1:
-            return 1 - tile[0] / self.tiles_horizontal
-        elif direction == 2:
-            return 1 - tile[1] / self.tiles_vertical
-        elif direction == 3:
-            return tile[0] / self.tiles_horizontal
-        elif direction == 4:
-            return min(1 - tile[0] / self.tiles_horizontal, tile[1] / self.tiles_vertical)
-        elif direction == 5:
-            return min(1 - tile[0] / self.tiles_horizontal, 1 - tile[1] / self.tiles_vertical)
-        elif direction == 6:
-            return min(tile[0] / self.tiles_horizontal, 1 - tile[1] / self.tiles_vertical)
-        else:
-            return min(tile[0] / self.tiles_horizontal, tile[1] / self.tiles_vertical)
+        return data
 
-    def dist_to_body(self, tile, body, direction):
+    def dist_to_body(self, tile, body):
+        data = self.dist_to_wall(tile)
+
         for body_tile in body:
-            if body_tile[0] == tile[0]:
-                return abs(body_tile[1] - tile[1]) / self.tiles_vertical
-            elif body_tile[1] == tile[1]:
-                return abs(body_tile[0] - tile[0]) / self.tiles_horizontal
-            elif body_tile[0] - tile[0] == body_tile[1] - tile[1]:
-                return abs(body_tile[0] - tile[0]) / self.tiles_diagonal
-            else:
-                return abs(body_tile[0] - tile[1]) / self.tiles_diagonal
+            if body_tile[0] == tile[0] and body_tile[1] < tile[1]:
+                data[0] = (body_tile[1] - tile[1]) / self.tiles_vertical
+            elif body_tile[1] == tile[1] and body_tile[0] > tile[0]:
+                data[1] = (body_tile[0] - tile[0]) / self.tiles_horizontal
+            elif body_tile[0] == tile[0] and body_tile[1] > tile[1]:
+                data[2] = (tile[1] - body_tile[1]) / self.tiles_vertical
+            elif body_tile[1] == tile[1] and body_tile[0] < tile[0]:
+                data[3] = (tile[0] - body_tile[0]) / self.tiles_horizontal
 
-    def dist_to_food(self, tile, direction):
-        if tile[0] == self.food[0]:
-            return abs(tile[1] - self.food[1]) / self.tiles_vertical
-        elif tile[1] == self.food[1]:
-            return abs(tile[0] - self.food[0]) / self.tiles_horizontal
-        elif tile[0] - self.food[0] == tile[1] - self.food[1]:
-            return abs(tile[0] - self.food[0]) / self.tiles_diagonal
+        return data
+
+    def dist_to_food(self, tile):
+        data = [0] * 4
+
+        if self.food[0] < tile[0]:
+            data[3] = self.food[0] / (tile[0] + 2)
         else:
-            return abs(tile[0] - self.food[1]) / self.tiles_diagonal
+            data[1] = (self.tiles_horizontal - self.food[0]) / (tile[0] + 2)
+        if self.food[1] < tile[1]:
+            data[0] = self.food[1] / (tile[1] + 2)
+        else:
+            data[2] = (self.tiles_vertical - self.food[1]) / (tile[1] + 2)
+
+        return data
 
 
 class Snake:
@@ -213,44 +208,14 @@ class Snake:
         is_inside = 0 <= tile[0] <= self._window.tiles_horizontal and 0 <= tile[1] <= self._window.tiles_vertical
         return is_inside
 
-    def _next_tile_in_direction(self, direction, tile):
-        x, y = tile[0], tile[1]
-        if direction == 0:
-            y -= 1
-        elif direction == 1:
-            x += 1
-        elif direction == 2:
-            y += 1
-        elif direction == 3:
-            x -= 1
-        elif direction == 4:
-            x += 1
-            y -= 1
-        elif direction == 5:
-            x += 1
-            y += 1
-        elif direction == 6:
-            x -= 1
-            y += 1
-        elif direction == 7:
-            x -= 1
-            y -= 1
-
-        if self._tile_in_window((x, y)):
-            return x, y
-        else:
-            return None
-
     def _observe(self):
-        observations = []
         tile = self._head()
-        for direction in range(0, 7):
-            observations.append(self._window.dist_to_wall(tile, direction))
-            observations.append(self._window.dist_to_body(tile, self._body(), direction))
-            observations.append(self._window.dist_to_food(tile, direction))
-
+        observations = self._window.dist_to_wall(tile)
+        observations.extend(self._window.dist_to_body(tile, self._body()))
+        observations.extend(self._window.dist_to_food(tile))
         observations.append(self._prev_action)
         observations.append(self._get_reward())
+
         return observations
 
 

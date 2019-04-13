@@ -44,7 +44,6 @@ def prepare_model_data():
                 action = data[1]
                 output[action] = 1
                 training_data.append([data[0], output])
-        print(score)
     print(accepted_scores)
 
     return training_data
@@ -71,7 +70,7 @@ def train_model(training_data):
 
     model = create_model(len(x[0]), len(y[0]))
 
-    model.fit(x, y, epochs=50)
+    model.fit(x, y, epochs=20)
     return model
 
 
