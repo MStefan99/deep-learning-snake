@@ -6,7 +6,7 @@ from keras import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-required_score = 1000
+required_score = -1000
 initial_games = 2000
 goal_steps = 500
 w = Window(500, 500, 50, 50)
@@ -23,8 +23,10 @@ def prepare_model_data():
         print(f'Game {game} of {initial_games}')
 
         for step in range(goal_steps):
-            action = random.randrange(0, 3)
+            action = random.randrange(0, 4)
             observation, reward, done = s.step(action)
+            # w.update()
+            # w.clear()
 
             if len(previous_observation) > 0:
                 game_memory.append([previous_observation, action])
@@ -32,6 +34,7 @@ def prepare_model_data():
             previous_observation = observation
             score += reward
             if done:
+                s.reset()
                 break
 
         if score > required_score:
@@ -41,6 +44,7 @@ def prepare_model_data():
                 action = data[1]
                 output[action] = 1
                 training_data.append([data[0], output])
+        print(score)
     print(accepted_scores)
 
     return training_data
@@ -58,7 +62,7 @@ def create_model(in_size, out_size):
 
 def play_random_games():
     for _ in range(1000):
-        s.step(random.randrange(0, 3))
+        s.step(random.randrange(0, 4))
 
 
 def train_model(training_data):
@@ -90,10 +94,10 @@ def play_game(trained_model):
 
 
 def main():
-    s.speed = 0
+    w.mode = 'Background'
     data = prepare_model_data()
     trained_model = train_model(data)
-    s.speed = 4
+    w.mode = 'Visual'
     play_game(trained_model)
 
 
