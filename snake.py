@@ -17,7 +17,7 @@ class Window:
         self.tile_width = self.win_width / self.tiles_horizontal
         self.tiles_diagonal = ((tiles_horizontal - 0) ** 2 + (tiles_vertical - 1) ** 2) ** (1 / 2)
 
-        self.speed = 4
+        self.speed = 20
         self.food = self.random_tile()
         self.win = pygame.display.set_mode((self.win_width, self.win_height))
         self.mode = 'Visual'
@@ -31,19 +31,19 @@ class Window:
         return i, j
 
     def update(self):
-        if self.mode == 'Visual':
+        if self.mode == 'Visual' or self.mode == 'Game':
             pygame.display.update()
 
     def clear(self):
-        if self.mode == 'Visual':
+        if self.mode == 'Visual' or self.mode == 'Game':
             self.win.fill((0, 0, 0))
 
     def delay(self):
-        if self.mode == 'Visual' and self.speed != 0:
-            pygame.time.delay(200 // self.speed)
+        if (self.mode == 'Visual' or self.mode == 'Game') and self.speed != 0:
+            pygame.time.delay(1000 // self.speed)
 
     def draw_tile(self, tile, color):
-        if self.mode == 'Visual':
+        if self.mode == 'Visual' or self.mode == 'Game':
             x, y = self.tile_to_window_coords(tile)
             pygame.draw.rect(self.win, color,
                              (x, y, self.win_width / self.tiles_horizontal,
@@ -60,17 +60,16 @@ class Window:
         return tile[0] * self.tile_width, tile[1] * self.tile_height
 
     def dist_to_wall(self, tile):
-        data = [tile[1] / self.tiles_vertical,
-                1 - tile[0] / self.tiles_horizontal,
-                1 - tile[1] / self.tiles_vertical,
-                tile[0] / self.tiles_horizontal]
+        x = tile[0] / self.tiles_horizontal
+        y = tile[1] / self.tiles_vertical
+        data = [y, 1 - x, 1 - y, x]
 
         return data
 
     def dist_to_body(self, tile, body):
         data = self.dist_to_wall(tile)
 
-        for body_tile in body:
+        for body_tile in reversed(body):
             if body_tile[0] == tile[0] and body_tile[1] < tile[1]:
                 data[0] = (tile[1] - body_tile[1]) / self.tiles_vertical
             elif body_tile[1] == tile[1] and body_tile[0] > tile[0]:
@@ -86,13 +85,13 @@ class Window:
         data = [0] * 4
 
         if self.food[0] < tile[0]:
-            data[3] = (tile[0] - self.food[0]) / self.tiles_horizontal
+            data[3] = 1
         else:
-            data[1] = (self.food[0] - tile[0]) / self.tiles_horizontal
+            data[1] = 1
         if self.food[1] < tile[1]:
-            data[0] = (tile[1] - self.food[1]) / self.tiles_vertical
+            data[0] = 1
         else:
-            data[2] = (self.food[1] - tile[1]) / self.tiles_vertical
+            data[2] = 1
 
         return data
 
@@ -110,6 +109,7 @@ class Snake:
 
         self._snake_length = 4
         self._direction = 1
+        self._prev_direction = 1
         self._color = (0, 255, 0)
         self._reward = 0
 
@@ -120,6 +120,7 @@ class Snake:
 
         self._snake_length = 4
         self._direction = 1
+        self._prev_direction = 1
         self._reward = 0
 
     def step(self, action):
@@ -157,6 +158,8 @@ class Snake:
 
         self._reward = self._get_reward()
         observation = self._observe()
+        self._prev_direction = self._direction
+
         return observation, self._reward, self._lose()
 
     def _get_reward(self):
@@ -209,11 +212,13 @@ class Snake:
 
     def _observe(self):
         tile = self._head()
+        d = [0] * 4
+        d[self._prev_direction] = 1
 
         observations = self._window.dist_to_wall(tile)
         observations.extend(self._window.dist_to_body(tile, self._body()))
         observations.extend(self._window.dist_to_food(tile))
-        observations.append(self._reward)
+        observations.extend(d)
 
         return observations
 
