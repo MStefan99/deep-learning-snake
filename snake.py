@@ -8,13 +8,13 @@ red = (255, 0, 0)
 
 
 class Window:
-    def __init__(self, win_width, win_height, tiles_horizontal, tiles_vertical):
+    def __init__(self, tiles_horizontal, tiles_vertical, scale):
         self.tiles_horizontal = tiles_horizontal
         self.tiles_vertical = tiles_vertical
-        self.win_width = win_width
-        self.win_height = win_height
-        self.tile_height = win_height / self.tiles_vertical
-        self.tile_width = win_width / self.tiles_horizontal
+        self.win_width = tiles_horizontal * scale
+        self.win_height = tiles_vertical * scale
+        self.tile_height = self.win_height / self.tiles_vertical
+        self.tile_width = self.win_width / self.tiles_horizontal
         self.tiles_diagonal = ((tiles_horizontal - 0) ** 2 + (tiles_vertical - 1) ** 2) ** (1 / 2)
 
         self.speed = 4
@@ -72,11 +72,11 @@ class Window:
 
         for body_tile in body:
             if body_tile[0] == tile[0] and body_tile[1] < tile[1]:
-                data[0] = (body_tile[1] - tile[1]) / self.tiles_vertical
+                data[0] = (tile[1] - body_tile[1]) / self.tiles_vertical
             elif body_tile[1] == tile[1] and body_tile[0] > tile[0]:
                 data[1] = (body_tile[0] - tile[0]) / self.tiles_horizontal
             elif body_tile[0] == tile[0] and body_tile[1] > tile[1]:
-                data[2] = (tile[1] - body_tile[1]) / self.tiles_vertical
+                data[2] = (body_tile[1] - tile[1]) / self.tiles_vertical
             elif body_tile[1] == tile[1] and body_tile[0] < tile[0]:
                 data[3] = (tile[0] - body_tile[0]) / self.tiles_horizontal
 
@@ -106,27 +106,23 @@ class Snake:
 
         x = self._window.tiles_horizontal // 2
         y = self._window.tiles_vertical // 2
-        self._snake = collections.deque([(x, y), (x - 1, y), (x - 2, y), (x - 3, y)])
+        self._snake = collections.deque([(x, y), (x - 1, y), (x - 2, y), (x - 3, y), (x - 4, y)])
 
         self._snake_length = 4
         self._direction = 1
         self._color = (0, 255, 0)
-        self._prev_action = 1
         self._reward = 0
 
     def reset(self):
         x = self._window.tiles_horizontal // 2
         y = self._window.tiles_vertical // 2
-        self._snake = collections.deque([(x, y), (x - 1, y), (x - 2, y), (x - 3, y)])
+        self._snake = collections.deque([(x, y), (x - 1, y), (x - 2, y), (x - 3, y), (x - 4, y)])
 
         self._snake_length = 4
         self._direction = 1
-        self._prev_action = 1
         self._reward = 0
 
     def step(self, action):
-        self._prev_action = action
-
         self._window.draw_tile(self._window.food, red)
 
         for tile in self._snake:
@@ -141,14 +137,13 @@ class Snake:
         if action == 2 and self._direction != 0:
             self._direction = 2
 
-        self._reward = self._get_reward()
-
         self._snake.appendleft(self._get_next())
         if len(self._snake) > self._snake_length:
             self._snake.pop()
 
         if self._head() == self._window.food:
             self._snake_length += 1
+            self._window.generate_food()
 
         if not self._window.food:
             self._window.generate_food()
@@ -156,7 +151,11 @@ class Snake:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
+            if event.type == pygame.MOUSEBUTTONUP:
+                self.reset()
+                self._window.generate_food()
 
+        self._reward = self._get_reward()
         observation = self._observe()
         return observation, self._reward, self._lose()
 
@@ -165,7 +164,7 @@ class Snake:
             return -1.0
         elif self._head() == self._window.food:
             return 0.7
-        elif distance_between_tiles(self._head(), self._window.food) < \
+        elif distance_between_tiles(self._snake[0], self._window.food) < \
                 distance_between_tiles(self._snake[1], self._window.food):
             return 0.1
         else:
@@ -210,11 +209,11 @@ class Snake:
 
     def _observe(self):
         tile = self._head()
+
         observations = self._window.dist_to_wall(tile)
         observations.extend(self._window.dist_to_body(tile, self._body()))
         observations.extend(self._window.dist_to_food(tile))
-        observations.append(self._prev_action / 4)
-        observations.append(self._get_reward())
+        observations.append(self._reward)
 
         return observations
 
