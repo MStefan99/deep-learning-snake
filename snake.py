@@ -8,7 +8,7 @@ red = (255, 0, 0)
 
 
 class Window:
-    def __init__(self, tiles_horizontal, tiles_vertical, scale):
+    def __init__(self, scale, tiles_horizontal, tiles_vertical):
         self.tiles_horizontal = tiles_horizontal
         self.tiles_vertical = tiles_vertical
         self.win_width = tiles_horizontal * scale
@@ -31,19 +31,19 @@ class Window:
         return i, j
 
     def update(self):
-        if self.mode == 'Visual' or self.mode == 'Game':
+        if self.mode == 'Visual':
             pygame.display.update()
 
     def clear(self):
-        if self.mode == 'Visual' or self.mode == 'Game':
+        if self.mode == 'Visual':
             self.win.fill((0, 0, 0))
 
     def delay(self):
-        if (self.mode == 'Visual' or self.mode == 'Game') and self.speed != 0:
+        if self.mode == 'Visual' and self.speed != 0:
             pygame.time.delay(1000 // self.speed)
 
     def draw_tile(self, tile, color):
-        if self.mode == 'Visual' or self.mode == 'Game':
+        if self.mode == 'Visual':
             x, y = self.tile_to_window_coords(tile)
             pygame.draw.rect(self.win, color,
                              (x, y, self.win_width / self.tiles_horizontal,
@@ -59,29 +59,7 @@ class Window:
     def tile_to_window_coords(self, tile):
         return tile[0] * self.tile_width, tile[1] * self.tile_height
 
-    def dist_to_wall(self, tile):
-        x = tile[0] / self.tiles_horizontal
-        y = tile[1] / self.tiles_vertical
-        data = [y, 1 - x, 1 - y, x]
-
-        return data
-
-    def dist_to_body(self, tile, body):
-        data = self.dist_to_wall(tile)
-
-        for body_tile in reversed(body):
-            if body_tile[0] == tile[0] and body_tile[1] < tile[1]:
-                data[0] = (tile[1] - body_tile[1]) / self.tiles_vertical
-            elif body_tile[1] == tile[1] and body_tile[0] > tile[0]:
-                data[1] = (body_tile[0] - tile[0]) / self.tiles_horizontal
-            elif body_tile[0] == tile[0] and body_tile[1] > tile[1]:
-                data[2] = (body_tile[1] - tile[1]) / self.tiles_vertical
-            elif body_tile[1] == tile[1] and body_tile[0] < tile[0]:
-                data[3] = (tile[0] - body_tile[0]) / self.tiles_horizontal
-
-        return data
-
-    def dist_to_food(self, tile):
+    def direction_to_food(self, tile):
         data = [0] * 4
 
         if self.food[0] < tile[0]:
@@ -100,7 +78,6 @@ class Snake:
     def __init__(self, window):
         self._window = window
         pygame.init()
-
         pygame.display.set_caption("The Snake!")
 
         x = self._window.tiles_horizontal // 2
@@ -122,6 +99,8 @@ class Snake:
         self._direction = 1
         self._prev_direction = 1
         self._reward = 0
+
+        return self._observe()
 
     def step(self, action):
         self._window.draw_tile(self._window.food, red)
@@ -167,11 +146,8 @@ class Snake:
             return -1.0
         elif self._head() == self._window.food:
             return 0.7
-        elif distance_between_tiles(self._snake[0], self._window.food) < \
-                distance_between_tiles(self._snake[1], self._window.food):
-            return 0.1
         else:
-            return -0.2
+            return -0.1
 
     def _get_next(self):
         x, y = self._head()
@@ -215,12 +191,26 @@ class Snake:
         d = [0] * 4
         d[self._prev_direction] = 1
 
-        observations = self._window.dist_to_wall(tile)
-        observations.extend(self._window.dist_to_body(tile, self._body()))
-        observations.extend(self._window.dist_to_food(tile))
+        observations = self._obstacle_next()
+        observations.extend(self._window.direction_to_food(tile))
         observations.extend(d)
 
         return observations
+
+    def _obstacle_next(self):
+        head = self._head()
+        body = self._body()
+
+        data = [0] * 4
+        if (head[0] - 1, head[1]) in body:
+            data[0] = 1
+        if (head[0], head[1] + 1) in body:
+            data[1] = 1
+        if (head[0] + 1, head[1]) in body:
+            data[2] = 1
+        if (head[0], head[1] - 1) in body:
+            data[3] = 1
+        return data
 
 
 def distance_between_tiles(tile1, tile2):
