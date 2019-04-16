@@ -1,100 +1,148 @@
-from snake import Window, Snake
-
 import random
+
 import numpy as np
+from time import time
 from keras import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-required_score = 1000
-initial_games = 2000
-goal_steps = 500
-w = Window(500, 500, 50, 50)
+from snake import Window, Snake
+
+goal_steps = 1000
+w = Window(15, 40, 40)
 s = Snake(w)
+train = True
+debug = False
 
 
-def prepare_model_data():
-    training_data = []
-    accepted_scores = []
-    for game in range(initial_games):
-        score = 0
-        game_memory = []
-        previous_observation = []
-        print(f'Game {game} of {initial_games}')
+class DQNAgent:
+    def __init__(self):
+        self.gamma = 0.95  # discount rate
+        self.epsilon = 1.0  # exploration rate
+        self.epsilon_min = 0.05
+        self.epsilon_decay = 0.998
+        self.learning_rate = 0.0005
+        self.model = self.build_model(6, 4)
 
-        for step in range(goal_steps):
-            action = random.randrange(0, 3)
-            observation, reward, done = s.step(action)
+    def train(self, games, ):
+        start = time()
+        for game in range(games):
+            if not debug:
+                log_process('Training, please wait...', game, games, 100, time_start=start, time_now=time())
+            training_data = []
+            observation = s.reset()
+            prev_observation = observation
+            w.generate_food()
+            if self.epsilon > self.epsilon_min:
+                self.epsilon *= self.epsilon_decay
 
-            if len(previous_observation) > 0:
-                game_memory.append([previous_observation, action])
-
-            previous_observation = observation
-            score += reward
-            if done:
-                break
-
-        if score > required_score:
-            accepted_scores.append(score)
-            for data in game_memory:
-                output = [0] * 4
-                action = data[1]
-                output[action] = 1
-                training_data.append([data[0], output])
-    print(accepted_scores)
-
-    return training_data
-
-
-def create_model(in_size, out_size):
-    model = Sequential()
-    model.add(Dense(64, input_dim=in_size, activation='relu'))
-    model.add(Dense(64, activation='relu'))
-    model.add(Dense(out_size, activation='softmax'))
-    model.compile(loss='mse', optimizer=Adam())
-
-    return model
-
-
-def play_random_games():
-    for _ in range(1000):
-        s.step(random.randrange(0, 3))
-
-
-def train_model(training_data):
-    x = np.array(([data[0] for data in training_data]))
-    y = np.array(([data[1] for data in training_data]))
-
-    model = create_model(len(x[0]), len(y[0]))
-
-    model.fit(x, y, epochs=50)
-    return model
-
-
-def play_game(trained_model):
-    observation = []
-    score = 0
-    while True:
-        if not observation:
-            action = random.randrange(0, 3)
-        else:
-            action = np.argmax(trained_model.predict(np.array(observation).reshape(-1, len(observation))))
-
-        observation, reward, done = s.step(action)
-
-        score += reward
-        if done:
-            print(score)
             score = 0
-            s.reset()
+            steps = 0
+            reward_total = 0
+            done = False
+
+            while not done:
+                if random.uniform(0, 1) < self.epsilon:
+                    action = random.randrange(0, 4)
+                else:
+                    action = np.argmax(self.model.predict(np.array(observation).reshape([-1, 6])))
+                observation, reward, done, info = s.step(action)
+
+                training_data.append([prev_observation, action, reward, observation, done])
+                prev_observation = observation
+
+                if info['Eaten']:
+                    score += 1
+                reward_total += reward
+                steps += 1
+
+            self.replay(training_data)
+
+            if game % 50 == 0:
+                self.model.save_weights('weights', overwrite=True)
+
+            if debug:
+                print(f'Game {game} finished. Score: {round(score, 2)} in {steps} steps, ' +
+                      f'eps: {round(self.epsilon, 2)}')
+
+        self.model.save_weights('weights', overwrite=True)
+
+    def replay(self, training_data):
+        for prev_state, action, reward, state, done in training_data:
+            prev_state = np.reshape(prev_state, [1, 6])
+            state = np.reshape(prev_state, [1, 6])
+
+            target = reward
+            if not done:
+                target = (reward + self.gamma *
+                          np.amax(self.model.predict(state)[0]))
+            target_f = self.model.predict(prev_state)
+            target_f[0][action] = target
+            self.model.fit(prev_state, target_f, epochs=1, verbose=0)
+
+    def build_model(self, in_size, out_size):
+        model = Sequential()
+        model.add(Dense(64, input_dim=in_size, activation='relu'))
+        model.add(Dense(64, activation='relu'))
+        model.add(Dense(out_size, activation='linear'))
+        model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
+        print(model.summary())
+
+        return model
+
+    def play(self):
+        game = 0
+
+        if not train:
+            self.model.load_weights('weights')
+
+        while True:
+            observation = s.reset()
+            w.generate_food()
+            score = 0
+            done = False
+
+            while not done:
+                action = np.argmax(self.model.predict(np.array(observation).reshape([-1, 6])))
+                observation, reward, done, info = s.step(action)
+
+                if info['Eaten']:
+                    score += 1
+
+                w.update()
+                w.delay()
+                w.clear()
+
+            game += 1
+            print(f'Game {game} finished. Score: {round(score, 2)}')
+
+
+def log_process(text, done, total, size, accuracy=1, time_start=0.0, time_now=0.0, start='\r', end=''):
+    completed = round(done / total * size)
+    if time_start and time_now and done > 0:
+        seconds = round((time_now - time_start) / done * (total - done))
+        if seconds > 60:
+            minutes = round(seconds / 60)
+            seconds = seconds % 60
+            eta = f'ETA: {minutes}m {seconds}s'
+        else:
+            eta = f'ETA: {seconds}s'
+    else:
+        eta = ''
+    print(f'{start}{text}  [{done}/{total}] ' + eta + '  ▌■' +
+          '▬' * completed + '►' + ' ' * (size - completed) +
+          '▐' + f'  {round(100 * done / total, accuracy)}% ', end=end)
 
 
 def main():
-    s.speed = 0
-    data = prepare_model_data()
-    trained_model = train_model(data)
-    s.speed = 4
-    play_game(trained_model)
+    a = DQNAgent()
+
+    if train:
+        w.mode = ''
+        a.train(1000)
+
+    w.mode = 'Visual'
+    a.play()
 
 
 if __name__ == '__main__':
