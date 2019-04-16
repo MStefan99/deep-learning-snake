@@ -60,16 +60,16 @@ class Window:
         return tile[0] * self.tile_width, tile[1] * self.tile_height
 
     def direction_to_food(self, tile):
-        data = [0] * 4
+        data = [0] * 2
 
         if self.food[0] < tile[0]:
-            data[3] = 1
-        else:
+            data[1] = -1
+        elif self.food[0] > tile[0]:
             data[1] = 1
         if self.food[1] < tile[1]:
+            data[0] = -1
+        elif self.food[1] > tile[1]:
             data[0] = 1
-        else:
-            data[2] = 1
 
         return data
 
@@ -88,7 +88,6 @@ class Snake:
         self._direction = 1
         self._prev_direction = 1
         self._color = (0, 255, 0)
-        self._reward = 0
 
     def reset(self):
         x = self._window.tiles_horizontal // 2
@@ -98,11 +97,11 @@ class Snake:
         self._snake_length = 4
         self._direction = 1
         self._prev_direction = 1
-        self._reward = 0
 
         return self._observe()
 
     def step(self, action):
+        eaten = False
         self._window.draw_tile(self._window.food, red)
 
         for tile in self._snake:
@@ -121,7 +120,10 @@ class Snake:
         if len(self._snake) > self._snake_length:
             self._snake.pop()
 
+        reward = self._get_reward()
+
         if self._head() == self._window.food:
+            eaten = True
             self._snake_length += 1
             self._window.generate_food()
 
@@ -135,19 +137,23 @@ class Snake:
                 self.reset()
                 self._window.generate_food()
 
-        self._reward = self._get_reward()
         observation = self._observe()
         self._prev_direction = self._direction
 
-        return observation, self._reward, self._lose()
+        info = {'Eaten': eaten}
+
+        return observation, reward, self._lose(), info
 
     def _get_reward(self):
         if self._lose():
             return -1.0
         elif self._head() == self._window.food:
             return 0.7
+        elif distance_between_tiles(self._snake[0], self._window.food) < \
+                distance_between_tiles(self._snake[1], self._window.food):
+            return 0.01
         else:
-            return -0.1
+            return -0.02
 
     def _get_next(self):
         x, y = self._head()
@@ -161,15 +167,12 @@ class Snake:
             return x - 1, y
 
     def _hit_wall(self):
-        x0, y0 = self._head()
+        x, y = self._head()
 
-        hit_up = x0 < 0 or y0 < 0
-        hit_down = x0 > self._window.tiles_horizontal or y0 > self._window.tiles_vertical
+        hit_x = x < 0 or x > self._window.tiles_horizontal - 1
+        hit_y = y < 0 or y > self._window.tiles_vertical - 1
 
-        hit_right = self._window.is_left_tile(self._snake[0]) and self._window.is_right_tile(self._snake[1])
-        hit_left = self._window.is_right_tile(self._snake[0]) and self._window.is_left_tile(self._snake[1])
-
-        return hit_up or hit_down or hit_right or hit_left
+        return hit_x or hit_y
 
     def _lose(self):
         return self._head() in self._body() or self._hit_wall()
@@ -188,12 +191,9 @@ class Snake:
 
     def _observe(self):
         tile = self._head()
-        d = [0] * 4
-        d[self._prev_direction] = 1
 
         observations = self._obstacle_next()
         observations.extend(self._window.direction_to_food(tile))
-        observations.extend(d)
 
         return observations
 
@@ -202,13 +202,13 @@ class Snake:
         body = self._body()
 
         data = [0] * 4
-        if (head[0] - 1, head[1]) in body:
-            data[0] = 1
-        if (head[0], head[1] + 1) in body:
-            data[1] = 1
-        if (head[0] + 1, head[1]) in body:
-            data[2] = 1
         if (head[0], head[1] - 1) in body:
+            data[0] = 1
+        if (head[0] + 1, head[1]) in body:
+            data[1] = 1
+        if (head[0], head[1] + 1) in body:
+            data[2] = 1
+        if (head[0] - 1, head[1]) in body:
             data[3] = 1
         return data
 

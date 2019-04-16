@@ -1,3 +1,4 @@
+import time
 from collections import deque
 
 from snake import Window, Snake
@@ -11,57 +12,70 @@ from keras.optimizers import Adam
 initial_games = 10000
 required_score = 0
 goal_steps = 1000
-w = Window(15, 30, 30)
+w = Window(20, 20, 20)
 s = Snake(w)
+train = True
 
 
 class DQNAgent:
-    def __init__(self, action_size):
-        self.action_size = action_size
-        self.memory = deque(maxlen=2000)
-        self.gamma = 0.95    # discount rate
+    def __init__(self):
+        self.gamma = 0.95  # discount rate
         self.epsilon = 1.0  # exploration rate
-        self.epsilon_min = 0.01
-        self.epsilon_decay = 0.995
-        self.learning_rate = 0.001
-        self.model = self.build_model(12, 4)
+        self.epsilon_min = 0.0001
+        self.epsilon_decay = 0.996
+        self.learning_rate = 0.0005
+        self.model = self.build_model(6, 4)
 
-    def train(self, model):
-        batch_size = 32
-
-        while True:
-            memory = []
-            prev_state = []
+    def train(self, games):
+        for game in range(games):
+            if game > 900:
+                w.speed = games + 20 - game
+            else:
+                w.speed = 0
             training_data = []
-            done = False
-            state = s.reset()
+            observation = s.reset()
+            prev_observation = observation
             w.generate_food()
-            self.epsilon *= self.epsilon_decay
+            if self.epsilon > self.epsilon_min:
+                self.epsilon *= self.epsilon_decay
+            score = 0
+            steps = 0
+            reward_total = 0
+            done = False
+
+            # self.model.load_weights('weights')
 
             while not done:
-                score = 0
-
                 if random.uniform(0, 1) < self.epsilon:
                     action = random.randrange(0, 4)
                 else:
-                    action = np.argmax(model.predict(np.array(state).reshape([-1, 12])))
+                    action = np.argmax(self.model.predict(np.array(observation).reshape([-1, 6])))
+                observation, reward, done, info = s.step(action)
 
-                observation, reward, done = s.step(action)
-
-                state = np.reshape(state, [1, 12])
-                training_data.append([prev_state, action, reward, state, done])
-                prev_state = state
+                training_data.append([prev_observation, action, reward, observation, done])
+                prev_observation = observation
 
                 w.update()
                 w.delay()
                 w.clear()
 
-                score += reward
-                if len(memory) > batch_size:
-                    self.replay(training_data)
+                if info['Eaten']:
+                    score += 1
+                reward_total += reward
+                steps += 1
+                # print(f'Observation: {observation}, Reward: {reward}')
+
+            self.replay(training_data)
+            if game % 50 == 0:
+                self.model.save_weights('weights', overwrite=True)
+            print(f'Game {game} finished. Score: {round(score, 2)} in {steps} steps, Avg reward: ' +
+                  f'{round(reward_total / steps, 2)} eps: {round(self.epsilon, 2)}')
 
     def replay(self, training_data):
         for prev_state, action, reward, state, done in training_data:
+            prev_state = np.reshape(prev_state, [1, 6])
+            state = np.reshape(prev_state, [1, 6])
+
             target = reward
             if not done:
                 target = (reward + self.gamma *
@@ -75,44 +89,35 @@ class DQNAgent:
         model.add(Dense(64, input_dim=in_size, activation='relu'))
         model.add(Dense(64, activation='relu'))
         model.add(Dense(out_size, activation='linear'))
-        model.compile(loss='mse', optimizer=Adam(lr=0.8))
+        model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
         print(model.summary())
 
         return model
 
-    def train_model(self, training_data, weights=None):
-        x = np.array(([data[0] for data in training_data]))
-        y = np.array(([data[1] for data in training_data]))
+    def play(self):
+        game = 0
 
-        model = self.build_model(len(x[0]), len(y[0]))
+        if not train:
+            self.model.load_weights('weights')
 
-        if weights:
-            model.load_weights(weights)
-        model.fit(x, y, epochs=5)
-
-        return model
-
-
-def play_game(trained_model):
-    observation = []
-    score = 0
-    while True:
-        if not observation:
-            action = 1
-        else:
-            action = np.argmax(trained_model.predict(np.array(observation).reshape(-1, len(observation))))
-        observation, reward, done = s.step(action)
-
-        w.update()
-        w.delay()
-        w.clear()
-
-        score += reward
-        if done:
-            print(score)
-            score = 0
-            s.reset()
+        while True:
+            state = s.reset()
             w.generate_food()
+            score = 0
+            done = False
+
+            while not done:
+                action = np.argmax(self.model.predict(np.array(state).reshape([-1, 6])))
+                observation, reward, done, info = s.step(action)
+                if info['Eaten']:
+                    score += 1
+
+                w.update()
+                w.delay()
+                w.clear()
+
+            game += 1
+            print(f'Game {game} finished. Score: {round(score, 2)}')
 
 
 def log_process(text, done, total, size, accuracy=1, time_start=0.0, time_now=0.0, start='\r', end=''):
@@ -133,14 +138,12 @@ def log_process(text, done, total, size, accuracy=1, time_start=0.0, time_now=0.
 
 
 def main():
-    a = DQNAgent(4)
-    model = a.build_model(12, 4)
-    a.train(model)
-
-    # prepare_model_data(create_model(12, 4))
-    # trained_model = train_model(data)
-    # w.mode = 'Visual'
-    # play_game(trained_model)
+    a = DQNAgent()
+    if train:
+        # w.mode = ''
+        a.train(1000)
+    w.mode = 'Visual'
+    a.play()
 
 
 if __name__ == '__main__':
