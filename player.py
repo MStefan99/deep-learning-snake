@@ -1,49 +1,45 @@
-import time
-from collections import deque
-
-from snake import Window, Snake
-
 import random
+
 import numpy as np
+from time import time
 from keras import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-initial_games = 10000
-required_score = 0
+from snake import Window, Snake
+
 goal_steps = 1000
-w = Window(20, 20, 20)
+w = Window(15, 40, 40)
 s = Snake(w)
 train = True
+debug = False
 
 
 class DQNAgent:
     def __init__(self):
         self.gamma = 0.95  # discount rate
         self.epsilon = 1.0  # exploration rate
-        self.epsilon_min = 0.0001
-        self.epsilon_decay = 0.996
+        self.epsilon_min = 0.05
+        self.epsilon_decay = 0.998
         self.learning_rate = 0.0005
         self.model = self.build_model(6, 4)
 
-    def train(self, games):
+    def train(self, games, ):
+        start = time()
         for game in range(games):
-            if game > 900:
-                w.speed = games + 20 - game
-            else:
-                w.speed = 0
+            if not debug:
+                log_process('Training, please wait...', game, games, 100, time_start=start, time_now=time())
             training_data = []
             observation = s.reset()
             prev_observation = observation
             w.generate_food()
             if self.epsilon > self.epsilon_min:
                 self.epsilon *= self.epsilon_decay
+
             score = 0
             steps = 0
             reward_total = 0
             done = False
-
-            # self.model.load_weights('weights')
 
             while not done:
                 if random.uniform(0, 1) < self.epsilon:
@@ -55,21 +51,21 @@ class DQNAgent:
                 training_data.append([prev_observation, action, reward, observation, done])
                 prev_observation = observation
 
-                w.update()
-                w.delay()
-                w.clear()
-
                 if info['Eaten']:
                     score += 1
                 reward_total += reward
                 steps += 1
-                # print(f'Observation: {observation}, Reward: {reward}')
 
             self.replay(training_data)
+
             if game % 50 == 0:
                 self.model.save_weights('weights', overwrite=True)
-            print(f'Game {game} finished. Score: {round(score, 2)} in {steps} steps, Avg reward: ' +
-                  f'{round(reward_total / steps, 2)} eps: {round(self.epsilon, 2)}')
+
+            if debug:
+                print(f'Game {game} finished. Score: {round(score, 2)} in {steps} steps, ' +
+                      f'eps: {round(self.epsilon, 2)}')
+
+        self.model.save_weights('weights', overwrite=True)
 
     def replay(self, training_data):
         for prev_state, action, reward, state, done in training_data:
@@ -101,14 +97,15 @@ class DQNAgent:
             self.model.load_weights('weights')
 
         while True:
-            state = s.reset()
+            observation = s.reset()
             w.generate_food()
             score = 0
             done = False
 
             while not done:
-                action = np.argmax(self.model.predict(np.array(state).reshape([-1, 6])))
+                action = np.argmax(self.model.predict(np.array(observation).reshape([-1, 6])))
                 observation, reward, done, info = s.step(action)
+
                 if info['Eaten']:
                     score += 1
 
@@ -139,9 +136,11 @@ def log_process(text, done, total, size, accuracy=1, time_start=0.0, time_now=0.
 
 def main():
     a = DQNAgent()
+
     if train:
-        # w.mode = ''
+        w.mode = ''
         a.train(1000)
+
     w.mode = 'Visual'
     a.play()
 

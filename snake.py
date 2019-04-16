@@ -17,7 +17,7 @@ class Window:
         self.tile_width = self.win_width / self.tiles_horizontal
         self.tiles_diagonal = ((tiles_horizontal - 0) ** 2 + (tiles_vertical - 1) ** 2) ** (1 / 2)
 
-        self.speed = 20
+        self.speed = 18
         self.food = self.random_tile()
         self.win = pygame.display.set_mode((self.win_width, self.win_height))
         self.mode = 'Visual'
