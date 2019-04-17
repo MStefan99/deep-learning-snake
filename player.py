@@ -1,45 +1,45 @@
 import random
+from time import time
 
 import numpy as np
-from time import time
+import os
 from keras import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
 from snake import Window, Snake
 
-goal_steps = 1000
-w = Window(15, 40, 40)
+filename = 'weights_1000'
+w = Window(12, 50, 50)
 s = Snake(w)
-train = True
+skip_training = False
 debug = False
 
 
 class DQNAgent:
     def __init__(self):
-        self.gamma = 0.95  # discount rate
-        self.epsilon = 1.0  # exploration rate
+        self.gamma = 0.95
+        self.epsilon = 1.0
         self.epsilon_min = 0.05
         self.epsilon_decay = 0.998
         self.learning_rate = 0.0005
         self.model = self.build_model(6, 4)
 
-    def train(self, games, ):
+    def train(self, games):
         start = time()
-        for game in range(games):
-            if not debug:
-                log_process('Training, please wait...', game, games, 100, time_start=start, time_now=time())
-            training_data = []
-            observation = s.reset()
-            prev_observation = observation
-            w.generate_food()
-            if self.epsilon > self.epsilon_min:
-                self.epsilon *= self.epsilon_decay
 
+        for game in range(games):
             score = 0
             steps = 0
             reward_total = 0
             done = False
+            training_data = []
+            observation = s.reset()
+            prev_observation = observation
+            w.generate_food()
+
+            if self.epsilon > self.epsilon_min:
+                self.epsilon *= self.epsilon_decay
 
             while not done:
                 if random.uniform(0, 1) < self.epsilon:
@@ -56,16 +56,20 @@ class DQNAgent:
                 reward_total += reward
                 steps += 1
 
+            if not debug:
+                log_process('Training, please wait...', game, games, 50,
+                            time_start=start, time_now=time(), time_correction=2,
+                            info=f'Avg reward: {round(reward_total / game, 2) if game > 0 else 0}, '
+                            f'Score: {score}, Epsilon: {round(self.epsilon, 2)}.')
+
             self.replay(training_data)
 
-            if game % 50 == 0:
-                self.model.save_weights('weights', overwrite=True)
+            if game % 50 == 49:
+                self.model.save_weights(filename, overwrite=True)
 
             if debug:
                 print(f'Game {game} finished. Score: {round(score, 2)} in {steps} steps, ' +
                       f'eps: {round(self.epsilon, 2)}')
-
-        self.model.save_weights('weights', overwrite=True)
 
     def replay(self, training_data):
         for prev_state, action, reward, state, done in training_data:
@@ -93,8 +97,8 @@ class DQNAgent:
     def play(self):
         game = 0
 
-        if not train:
-            self.model.load_weights('weights')
+        if skip_training and os.path.isfile(filename):
+            self.model.load_weights(filename)
 
         while True:
             observation = s.reset()
@@ -117,10 +121,13 @@ class DQNAgent:
             print(f'Game {game} finished. Score: {round(score, 2)}')
 
 
-def log_process(text, done, total, size, accuracy=1, time_start=0.0, time_now=0.0, start='\r', end=''):
+def log_process(text: str, done: int, total: int, size: int, accuracy=1, info: str = '',
+                time_start=0.0, time_now=0.0, time_correction: float = 1,
+                start='\r', end=''):
+
     completed = round(done / total * size)
     if time_start and time_now and done > 0:
-        seconds = round((time_now - time_start) / done * (total - done))
+        seconds = round((time_now - time_start) / done * (total - done) * time_correction)
         if seconds > 60:
             minutes = round(seconds / 60)
             seconds = seconds % 60
@@ -129,19 +136,20 @@ def log_process(text, done, total, size, accuracy=1, time_start=0.0, time_now=0.
             eta = f'ETA: {seconds}s'
     else:
         eta = ''
+    if done == total - 1:
+        end = '\n'
+
     print(f'{start}{text}  [{done}/{total}] ' + eta + '  ▌■' +
           '▬' * completed + '►' + ' ' * (size - completed) +
-          '▐' + f'  {round(100 * done / total, accuracy)}% ', end=end)
+          '▐' + f'  {round(100 * done / total, accuracy)}%.  {info}', end=end)
 
 
 def main():
     a = DQNAgent()
 
-    if train:
-        w.mode = ''
+    if not skip_training:
         a.train(1000)
 
-    w.mode = 'Visual'
     a.play()
 
 
