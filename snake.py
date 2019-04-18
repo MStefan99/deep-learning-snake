@@ -144,6 +144,25 @@ class Snake:
             data[3] = 1
         return data
 
+    def dist_to_body(self):
+        head = self._head()
+        body = self._body()
+
+        data = self._window.distance_to_wall(head)
+        x, y = self._window.get_dimensions()
+
+        for body_tile in body:
+            if body_tile[0] == head[0] and body_tile[1] < head[1]:
+                data[0] = (head[1] - body_tile[1]) / y
+            elif body_tile[1] == head[1] and body_tile[0] > head[0]:
+                data[1] = (body_tile[0] - head[0]) / x
+            elif body_tile[0] == head[0] and body_tile[1] > head[1]:
+                data[2] = (body_tile[1] - head[1]) / y
+            elif body_tile[1] == head[1] and body_tile[0] < head[0]:
+                data[3] = (head[0] - body_tile[0]) / x
+
+        return data
+
 
 def distance_between_tiles(tile1, tile2):
     return ((tile1[0] - tile2[0]) ** 2 + (tile1[1] - tile2[1]) ** 2) ** (1 / 2)

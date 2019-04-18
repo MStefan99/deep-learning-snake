@@ -9,25 +9,29 @@ from keras.optimizers import Adam
 
 from log import log_process
 
-filename = 'weights/weights_5000'
-skip_training = False
+default_filename = 'weights/weights_5000'
 debug = False
 
 
 class DQNAgent:
-    def __init__(self, window, snake):
+    def __init__(self, window, snake, filename, skip_training=False):
         self._gamma = 0.95
         self._epsilon_start = 1.0
         self._epsilon = self._epsilon_start
         self._epsilon_min = 0.1
         self._learning_rate = 0.0005
+        self._filename = filename
+        self._skip_training = skip_training
 
         self._window = window
         self._snake = snake
-        self._model = self.build_model(6, 4)
+        self._input_nodes = len(self._snake.reset())
+        self._output_nodes = 4
+        self._model = self.build_model(self._input_nodes,
+                                       self._output_nodes)
 
     def train(self, games):
-        if not skip_training:
+        if not self._skip_training:
             start = time()
 
             for game in range(games):
@@ -36,8 +40,7 @@ class DQNAgent:
                 reward_total = 0
                 done = False
                 training_data = []
-                observation = self._snake.reset()
-                prev_observation = observation
+                prev_observation = observation = self._snake.reset()
                 self._window.generate_food_for_snake(self._snake.get_snake())
 
                 if self._epsilon > self._epsilon_min:
@@ -45,9 +48,9 @@ class DQNAgent:
 
                 while not done:
                     if random.uniform(0, 1) < self._epsilon:
-                        action = random.randrange(0, 4)
+                        action = random.randrange(0, self._output_nodes)
                     else:
-                        action = np.argmax(self._model.predict(np.array(observation).reshape([-1, 6])))
+                        action = np.argmax(self._model.predict(np.array(observation).reshape([-1, self._input_nodes])))
                     observation, reward, done, info = self._snake.step(action)
 
                     training_data.append([prev_observation, action, reward, observation, done])
@@ -66,8 +69,8 @@ class DQNAgent:
 
                 self.replay(training_data)
 
-                if game % 50 == 49:
-                    self._model.save_weights(filename, overwrite=True)
+                if game % (games // 10) == games // 10 - 1:
+                    self._model.save_weights(self._filename, overwrite=True)
 
                 if debug:
                     print(f'Game {game} finished. Score: {round(score, 2)} in {steps} steps, ' +
@@ -75,8 +78,8 @@ class DQNAgent:
 
     def replay(self, training_data):
         for prev_state, action, reward, state, done in training_data:
-            prev_state = np.reshape(prev_state, [1, 6])
-            state = np.reshape(prev_state, [1, 6])
+            prev_state = np.reshape(prev_state, [1, self._input_nodes])
+            state = np.reshape(prev_state, [1, self._input_nodes])
 
             target = reward
             if not done:
@@ -98,8 +101,14 @@ class DQNAgent:
     def play(self):
         game = 0
 
-        if skip_training and os.path.isfile(filename):
-            self._model.load_weights(filename)
+        if self._skip_training:
+            if os.path.isfile(self._filename):
+                self._model.load_weights(self._filename)
+            elif os.path.isfile(default_filename):
+                print('Warning, no model file found! Playing game with default model.')
+                self._model.load_weights(default_filename)
+            else:
+                print('Warning, no model file found and default is unavailable! Playing with random model!')
 
         while True:
             observation = self._snake.reset()
@@ -108,7 +117,7 @@ class DQNAgent:
             done = False
 
             while not done:
-                action = np.argmax(self._model.predict(np.array(observation).reshape([-1, 6])))
+                action = np.argmax(self._model.predict(np.array(observation).reshape([-1, self._input_nodes])))
                 observation, reward, done, info = self._snake.step(action)
 
                 if info['Eaten']:
