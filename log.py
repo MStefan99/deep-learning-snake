@@ -1,5 +1,9 @@
+# Time correction value is used for compensating the ETA if prediction is wrong.
+# ETA is multiplied by the correction value, value of 1.0 means no correction.
+
+
 def log_process(text: str, done: int, total: int, size: int, accuracy=1, info: str = '',
-                time_start=0.0, time_now=0.0, time_correction: float = 1,
+                time_start=0.0, time_now=0.0, time_correction=1.0,
                 start='\r', end=''):
     completed = round(done / total * size)
     if time_start and time_now and done > 0:

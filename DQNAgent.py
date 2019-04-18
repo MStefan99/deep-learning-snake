@@ -64,8 +64,9 @@ class DQNAgent:
                 if not debug:
                     log_process('Training, please wait...', game, games, 50,
                                 time_start=start, time_now=time(), time_correction=2,
-                                info=f'Avg reward: {round(reward_total / game, 2) if game > 0 else 0}, '
-                                f'Score: {score}, Epsilon: {round(self._epsilon, 2)}.')
+                                info=f'Score: {score} in {steps} steps, '
+                                f'Avg reward: {round(reward_total / game, 2) if game > 0 else 0}, '
+                                f'Epsilon: {round(self._epsilon, 2)}.')
 
                 self.replay(training_data)
 
@@ -104,6 +105,7 @@ class DQNAgent:
         if self._skip_training:
             if os.path.isfile(self._filename):
                 self._model.load_weights(self._filename)
+                print('Model successfully loaded from file.')
             elif os.path.isfile(default_filename):
                 print('Warning, no model file found! Playing game with default model.')
                 self._model.load_weights(default_filename)
@@ -114,6 +116,7 @@ class DQNAgent:
             observation = self._snake.reset()
             self._window.generate_food_for_snake(self._snake.get_snake())
             score = 0
+            steps = 0
             done = False
 
             while not done:
@@ -126,6 +129,7 @@ class DQNAgent:
                 self._window.update()
                 self._window.delay()
                 self._window.clear()
+                steps += 1
 
             game += 1
-            print(f'Game {game} finished. Score: {round(score, 2)}')
+            print(f'Game {game} finished. Score: {round(score, 2)} in {steps} steps.')
