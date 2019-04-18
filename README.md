@@ -1,1 +1,1 @@
-test
+Deep learning snake made using Keras, Tensorflow and Deep Q-Network
