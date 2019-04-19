@@ -2,7 +2,7 @@ from DQNAgent import DQNAgent
 from snake import Snake
 from window import Window
 
-window = Window(12, 50, 50)  # Arguments define the tile size in the window, its width and height
+window = Window(tile_size=12, width=50, height=50)
 snake = Snake(window)
 
 # If skip_training value is true, a pre-made file with matching number of games will be automatically loaded,
@@ -10,15 +10,14 @@ snake = Snake(window)
 # You can see available values in the 'weights' folder.
 
 skip_training = True
-games_number = 1000
-filename = f'weights/weights_{games_number}'
+games_number = 5000
 
 
 # If the snake gets to run in a loop, just click anywhere in the game window with a mouse.
 
 
 def main():
-    a = DQNAgent(window, snake, filename, skip_training=skip_training)
+    a = DQNAgent(window, snake, games_number, skip_training=skip_training)
 
     a.train(games_number)
     a.play()

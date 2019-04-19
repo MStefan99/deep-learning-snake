@@ -5,19 +5,19 @@ import pygame
 
 
 class Window:
-    def __init__(self, scale, tiles_horizontal, tiles_vertical):
-        self._tiles_horizontal = tiles_horizontal
-        self._tiles_vertical = tiles_vertical
-        self._win_width = tiles_horizontal * scale
-        self._win_height = tiles_vertical * scale
+    def __init__(self, tile_size, width, height, speed=20, mode='Visual'):
+        self._tiles_horizontal = width
+        self._tiles_vertical = height
+        self._win_width = width * tile_size
+        self._win_height = height * tile_size
         self._tile_height = self._win_height / self._tiles_vertical
         self._tile_width = self._win_width / self._tiles_horizontal
-        self._tiles_diagonal = ((tiles_horizontal - 0) ** 2 + (tiles_vertical - 1) ** 2) ** (1 / 2)
+        self._tiles_diagonal = ((width - 0) ** 2 + (height - 1) ** 2) ** (1 / 2)
 
-        self._speed = 20
+        self._speed = speed
+        self._mode = mode
         self._food = self.random_tile()
         self._win = pygame.display.set_mode((self._win_width, self._win_height))
-        self._mode = 'Visual'
 
     def set_mode(self, mode):
         if mode == 'Visual':

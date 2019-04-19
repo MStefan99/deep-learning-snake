@@ -9,18 +9,20 @@ from keras.optimizers import Adam
 
 from log import log_process
 
-default_filename = 'weights/weights_5000'
+file_prefix = 'weights/weights_'
+default_games = 5000
+files = 10
 debug = False
 
 
 class DQNAgent:
-    def __init__(self, window, snake, filename, skip_training=False):
+    def __init__(self, window, snake, games_number, skip_training=False):
         self._gamma = 0.95
         self._epsilon_start = 1.0
         self._epsilon = self._epsilon_start
         self._epsilon_min = 0.1
         self._learning_rate = 0.0005
-        self._filename = filename
+        self._games_number = games_number
         self._skip_training = skip_training
 
         self._window = window
@@ -70,8 +72,8 @@ class DQNAgent:
 
                 self.replay(training_data)
 
-                if game % (games // 10) == games // 10 - 1:
-                    self._model.save_weights(self._filename, overwrite=True)
+                if game % (games // files) == games // files - 1:
+                    self._model.save_weights(f'{file_prefix}{game + 1}', overwrite=True)
 
                 if debug:
                     print(f'Game {game} finished. Score: {round(score, 2)} in {steps} steps, ' +
@@ -103,12 +105,12 @@ class DQNAgent:
         game = 0
 
         if self._skip_training:
-            if os.path.isfile(self._filename):
-                self._model.load_weights(self._filename)
-                print('Model successfully loaded from file.')
-            elif os.path.isfile(default_filename):
-                print('Warning, no model file found! Playing game with default model.')
-                self._model.load_weights(default_filename)
+            if os.path.isfile(f'{file_prefix}{self._games_number}'):
+                self._model.load_weights(f'{file_prefix}{self._games_number}')
+                print(f'Model trained on {self._games_number} games successfully loaded')
+            elif os.path.isfile(f'{file_prefix}{default_games}'):
+                print(f'Warning, no model file found! Playing game with default model trained on {default_games} games')
+                self._model.load_weights(f'{file_prefix}{default_games}')
             else:
                 print('Warning, no model file found and default is unavailable! Playing with random model!')
 
