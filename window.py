@@ -103,9 +103,7 @@ class Window:
                                   self._win_height / self._tiles_vertical))
 
     def distance_to_wall(self, tile):
-        data = [tile[1] / self._tiles_vertical,
-                1 - tile[0] / self._tiles_horizontal,
-                1 - tile[1] / self._tiles_vertical,
-                tile[0] / self._tiles_horizontal]
+        x, y = self.get_dimensions()
+        data = [tile[1] - 2, x - tile[0] - 2, x - tile[1] - 2, tile[0] - 2]
 
         return data

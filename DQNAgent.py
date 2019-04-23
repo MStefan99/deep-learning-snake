@@ -11,19 +11,20 @@ from log import log_process
 
 file_prefix = 'weights/weights_'
 default_games = 5000
-files = 10
-debug = False
+files = 1
+debug = True
 
 
 class DQNAgent:
-    def __init__(self, window, snake, games_number, skip_training=False):
+    def __init__(self, window, snake, games_number, skip_training=False, show_training=False):
         self._gamma = 0.95
         self._epsilon_start = 1.0
         self._epsilon = self._epsilon_start
         self._epsilon_min = 0.1
-        self._learning_rate = 0.0005
+        self._learning_rate = 0.0002
         self._games_number = games_number
         self._skip_training = skip_training
+        self._show_training = show_training
 
         self._window = window
         self._snake = snake
@@ -34,12 +35,22 @@ class DQNAgent:
 
     def train(self, games):
         if not self._skip_training:
+            total_score = 0
+            total_steps = 0
             start = time()
+            if debug:
+                print(f'Agent summary:\n '
+                      f'Starting epsilon: {self._epsilon_start},\n '
+                      f'Minimum epsilon: {self._epsilon_min},\n '
+                      f'Learning rate: {self._learning_rate},\n '
+                      f'Gamma: {self._gamma},\n '
+                      f'Input nodes: {self._input_nodes}.')
+                print(f'Observation sample: {self._snake.reset()}')
 
             for game in range(games):
                 score = 0
                 steps = 0
-                reward_total = 0
+                game_reward = 0
                 done = False
                 training_data = []
                 prev_observation = observation = self._snake.reset()
@@ -60,24 +71,36 @@ class DQNAgent:
 
                     if info['Eaten']:
                         score += 1
-                    reward_total += reward
+                    if not done:
+                        game_reward += reward
                     steps += 1
+
+                    if self._show_training:
+                        self._window.update()
+                        self._window.delay()
+                        self._window.clear()
 
                 if not debug:
                     log_process('Training, please wait...', game, games, 50,
                                 time_start=start, time_now=time(), time_correction=2,
                                 info=f'Score: {score} in {steps} steps, '
-                                f'Avg reward: {round(reward_total / game, 2) if game > 0 else 0}, '
+                                f'Avg reward: {round(game_reward / game, 2) if game > 0 else 0}, '
                                 f'Epsilon: {round(self._epsilon, 2)}.')
+                else:
+                    print(f'Game {game} of {games} finished. Score: {round(score, 2)} in {steps} steps, ' +
+                          f'Avg reward: {round(game_reward / game, 4) if game > 0 else 0}, '
+                          f'eps: {round(self._epsilon, 2)}.')
 
                 self.replay(training_data)
 
                 if game % (games // files) == games // files - 1:
                     self._model.save_weights(f'{file_prefix}{game + 1}', overwrite=True)
 
-                if debug:
-                    print(f'Game {game} finished. Score: {round(score, 2)} in {steps} steps, ' +
-                          f'eps: {round(self._epsilon, 2)}')
+                total_score += score
+                total_steps += steps
+            print(f'Training complete. Average score: {round(total_score / games, 3)}.')
+            if debug:
+                print(f'Total steps: {total_steps}.')
 
     def replay(self, training_data):
         for prev_state, action, reward, state, done in training_data:
@@ -119,11 +142,14 @@ class DQNAgent:
             self._window.generate_food_for_snake(self._snake.get_snake())
             score = 0
             steps = 0
+            game_reward = 0
             done = False
 
             while not done:
                 action = np.argmax(self._model.predict(np.array(observation).reshape([-1, self._input_nodes])))
                 observation, reward, done, info = self._snake.step(action)
+                if not done:
+                    game_reward += reward
 
                 if info['Eaten']:
                     score += 1
@@ -134,4 +160,8 @@ class DQNAgent:
                 steps += 1
 
             game += 1
-            print(f'Game {game} finished. Score: {round(score, 2)} in {steps} steps.')
+            if not debug:
+                print(f'Game {game} finished. Score: {round(score, 2)} in {steps} steps.')
+            else:
+                print(f'Game {game} finished. Score: {round(score, 2)} in {steps} steps, '
+                      f'Avg reward: {round(game_reward / steps, 4)}')

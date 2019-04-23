@@ -9,15 +9,18 @@ snake = Snake(window)
 # if present. Otherwise the default file with 5000 games will be loaded.
 # You can see available values in the 'weights' folder.
 
-skip_training = True
-games_number = 5000
+skip_training = False
+show_training = False  # Slows down the training drastically if enabled
+games_number = 900
 
 
 # If the snake gets to run in a loop, just click anywhere in the game window with a mouse.
 
 
 def main():
-    a = DQNAgent(window, snake, games_number, skip_training=skip_training)
+    a = DQNAgent(window, snake, games_number,
+                 skip_training=skip_training,
+                 show_training=show_training)
 
     a.train(games_number)
     a.play()
